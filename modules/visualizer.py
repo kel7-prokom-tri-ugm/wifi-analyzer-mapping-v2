@@ -116,29 +116,35 @@ def locations_to_dataframe(locations: list[dict]) -> pd.DataFrame:
         return df
     df["category"] = df["category"].fillna("Belum dipindai")
     df["color"] = df["category"].map(lambda c: CATEGORY_COLORS.get(c, UNKNOWN_COLOR))
+    df["isp"] = df.get("isp", pd.Series(["-"] * len(df))).fillna("-")
+    df["server_info"] = df.get("server_info", pd.Series(["-"] * len(df))).fillna("-")
     df["suitable_text"] = df["suitable_for"].map(
-        lambda items: ", ".join(items) if items else "-")
+        lambda items: ", ".join(items) if items else "Belum ada rekomendasi")
     for col in ("download_mbps", "upload_mbps", "ping_ms", "score"):
         df[col] = pd.to_numeric(df[col], errors="coerce")
+    df["download_label"] = df["download_mbps"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "-")
+    df["upload_label"] = df["upload_mbps"].map(lambda v: f"{v:.1f}" if pd.notna(v) else "-")
     return df
 
 
-def render_community_map(locations: list[dict]) -> None:
-    """Peta interaktif dengan pin Hijau (Aman) / Kuning (Rawan) / Merah (Bahaya)."""
+def render_community_map(locations: list[dict]) -> str | None:
+    """Peta interaktif dengan pin warna + hover tooltip + klik pilih lokasi."""
     df = locations_to_dataframe(locations)
     if df.empty:
         st.info("Belum ada data lokasi untuk ditampilkan di peta.")
-        return
+        return None
 
     layer = pdk.Layer(
         "ScatterplotLayer",
         data=df,
+        id="wifi-locations",
         get_position="[longitude, latitude]",
         get_fill_color="color",
-        get_radius=60,
+        get_radius=65,
         radius_min_pixels=7,
         radius_max_pixels=18,
         pickable=True,
+        auto_highlight=True,
         stroked=True,
         get_line_color=[8, 15, 28],
         line_width_min_pixels=1,
@@ -150,13 +156,23 @@ def render_community_map(locations: list[dict]) -> None:
         pitch=0,
     )
     tooltip = {
-        "html": "<b>{name}</b><br/>{ssid} · {isp}<br/>"
-                "Download: {download_mbps} Mbps · Ping: {ping_ms} ms<br/>"
-                "Keamanan: {score}/100 ({category})",
-        "style": {"backgroundColor": "#142238", "color": "#f4f8ff"},
+        "html": (
+            "<div style='line-height:1.45'>"
+            "<b style='font-size:13px'>{name}</b><br/>"
+            "<span style='color:#9db3ca'>{ssid} · {isp}</span><br/>"
+            "⬇ Download: <b>{download_label} Mbps</b> &nbsp;|&nbsp; ⬆ Upload: <b>{upload_label} Mbps</b><br/>"
+            "🤖 Cocok untuk: <b>{suitable_text}</b><br/>"
+            "🛡️ Keamanan: {score}/100 ({category})"
+            "</div>"
+        ),
+        "style": {"backgroundColor": "#142238", "color": "#f4f8ff", "border": "1px solid #35d5e8"},
     }
-    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tooltip,
-                             map_style=None))
+    event = st.pydeck_chart(
+        pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tooltip),
+        on_select="rerun",
+        selection_mode="single-object",
+        key="community_map_deck",
+    )
 
     legend = "".join(
         f'<span class="legend-item"><span class="legend-dot" '
@@ -164,6 +180,11 @@ def render_community_map(locations: list[dict]) -> None:
         for name, c in CATEGORY_COLORS.items()
     )
     st.markdown(f'<div class="legend">{legend}</div>', unsafe_allow_html=True)
+
+    objects = ((getattr(event, "selection", None) or {}).get("objects") or {}).get("wifi-locations") or []
+    if objects:
+        return objects[0].get("location_id")
+    return None
 
 
 def render_speed_security_chart(locations: list[dict]) -> None:
@@ -217,6 +238,8 @@ def render_history_table(history: list[dict]) -> pd.DataFrame:
         "Waktu": df["timestamp"],
         "Lokasi": df["name"],
         "SSID": df["ssid"],
+        "ISP": df.get("isp", pd.Series(["-"] * len(df))).fillna("-"),
+        "Server Uji": df.get("server_info", pd.Series(["-"] * len(df))).fillna("-"),
         "Download (Mbps)": df["download_mbps"],
         "Upload (Mbps)": df["upload_mbps"],
         "Ping (ms)": df["ping_ms"],

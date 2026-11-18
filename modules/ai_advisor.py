@@ -81,10 +81,13 @@ def build_rule_based_summary(network_data, security_data, location_name=None):
     ping = float(network_data.get("ping_ms", 0))
     category = security_data.get("category", "Rawan")
 
-    if dl >= 50 and ping <= 20:
+    if dl >= 50 and ping <= 40:
         speed = f"{place} sangat cepat dan responsif ({dl:.1f} Mbps, ping {ping:.0f} ms)."
-    elif dl >= 15 and ping <= 60:
+    elif dl >= 15 and ping <= 80:
         speed = f"{place} cukup lancar untuk aktivitas harian ({dl:.1f} Mbps, ping {ping:.0f} ms)."
+    elif dl >= 15:
+        speed = (f"{place} punya kecepatan unduh memadai ({dl:.1f} Mbps), namun latensi cukup tinggi "
+                 f"(ping {ping:.0f} ms) sehingga kurang ideal untuk panggilan video/gaming.")
     else:
         speed = f"{place} tergolong lambat ({dl:.1f} Mbps, ping {ping:.0f} ms); cocok untuk browsing ringan saja."
 

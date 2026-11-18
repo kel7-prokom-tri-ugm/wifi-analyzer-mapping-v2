@@ -71,9 +71,19 @@ def init_db() -> None:
             findings TEXT NOT NULL,
             summary TEXT NOT NULL,
             suitable_for TEXT NOT NULL,
+            server_info TEXT DEFAULT '-',
+            isp TEXT DEFAULT '-',
             FOREIGN KEY (location_id) REFERENCES locations_master (location_id)
         )
     """)
+
+    # Migrasi aman untuk database lama yang belum memiliki kolom server_info / isp
+    cursor.execute("PRAGMA table_info(wifi_scan_logs)")
+    existing_cols = {row["name"] for row in cursor.fetchall()}
+    if "server_info" not in existing_cols:
+        cursor.execute("ALTER TABLE wifi_scan_logs ADD COLUMN server_info TEXT DEFAULT '-'")
+    if "isp" not in existing_cols:
+        cursor.execute("ALTER TABLE wifi_scan_logs ADD COLUMN isp TEXT DEFAULT '-'")
 
     conn.commit()
     conn.close()
@@ -170,8 +180,13 @@ def save_scan_result(
     conn = get_connection()
     cursor = conn.cursor()
 
+    server_info = str(network_data.get("server_info") or "-").strip() or "-"
+    isp = str(network_data.get("isp") or "-").strip() or "-"
+    valid_isp = isp if isp not in ("-", "Unknown", "Simulasi ISP") else None
+
     # Jika pengguna memindai di lokasi baru yang belum ada di locations_master
     if new_location_info:
+        loc_isp = new_location_info.get("isp") or valid_isp or "Unknown"
         cursor.execute("""
             INSERT OR IGNORE INTO locations_master (location_id, name, area, ssid, isp, latitude, longitude)
             VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -179,19 +194,26 @@ def save_scan_result(
             location_id,
             new_location_info.get("name", "Lokasi Baru"),
             new_location_info.get("area", "Yogyakarta"),
-            new_location_info.get("ssid", "Public_WiFi"),
-            new_location_info.get("isp", "Unknown"),
+            new_location_info.get("ssid", "Public Wi-Fi"),
+            loc_isp,
             float(new_location_info.get("latitude", -7.76951)),
             float(new_location_info.get("longitude", 110.37825))
         ))
+    elif valid_isp:
+        cursor.execute("""
+            UPDATE locations_master
+            SET isp = ?
+            WHERE location_id = ? AND (isp IS NULL OR isp = '' OR isp = 'Unknown')
+        """, (valid_isp, location_id))
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute("""
         INSERT INTO wifi_scan_logs (
             location_id, timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms,
-            is_throttled, video_mbps, score, category, findings, summary, suitable_for
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            is_throttled, video_mbps, score, category, findings, summary, suitable_for,
+            server_info, isp
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         location_id,
         timestamp,
@@ -205,7 +227,9 @@ def save_scan_result(
         str(security_data.get("category", "Rawan")),
         json.dumps(security_data.get("findings", []), ensure_ascii=False),
         str(ai_data.get("summary", "")),
-        json.dumps(ai_data.get("suitable_for", []), ensure_ascii=False)
+        json.dumps(ai_data.get("suitable_for", []), ensure_ascii=False),
+        server_info,
+        isp,
     ))
 
     scan_id = cursor.lastrowid
@@ -227,7 +251,10 @@ def get_all_locations_summary() -> List[Dict[str, Any]]:
     # Mengambil data lokasi digabung dengan log pengujian paling baru di masing-masing lokasi
     query = """
         SELECT 
-            m.location_id, m.name, m.area, m.ssid, m.isp, m.latitude, m.longitude,
+            m.location_id, m.name, m.area, m.ssid,
+            COALESCE(NULLIF(NULLIF(l.isp, ''), '-'), m.isp, '-') AS isp,
+            COALESCE(NULLIF(l.server_info, ''), '-') AS server_info,
+            m.latitude, m.longitude,
             l.scan_id, l.timestamp, l.download_mbps, l.upload_mbps, l.ping_ms, l.jitter_ms,
             l.is_throttled, l.video_mbps, l.score, l.category, l.findings, l.summary, l.suitable_for
         FROM locations_master m
@@ -241,16 +268,7 @@ def get_all_locations_summary() -> List[Dict[str, Any]]:
     cursor.execute(query)
     rows = cursor.fetchall()
     conn.close()
-
-    results = []
-    for row in rows:
-        item = dict(row)
-        item["is_throttled"] = bool(item["is_throttled"])
-        item["findings"] = json.loads(item["findings"]) if item["findings"] else []
-        item["suitable_for"] = json.loads(item["suitable_for"]) if item["suitable_for"] else []
-        results.append(item)
-
-    return results
+    return _decode_scan_rows(rows)
 
 
 def find_location_by_name(name: str) -> Optional[Dict[str, Any]]:
@@ -281,6 +299,18 @@ def generate_location_id() -> str:
     return f"LOC-{(max(numbers) + 1) if numbers else 1:03d}"
 
 
+def _decode_scan_rows(rows: List[sqlite3.Row]) -> List[Dict[str, Any]]:
+    """Konversi sqlite3.Row menjadi list of dict dengan field JSON terurai."""
+    items = []
+    for row in rows:
+        item = dict(row)
+        item["is_throttled"] = bool(item["is_throttled"])
+        item["findings"] = json.loads(item["findings"]) if item["findings"] else []
+        item["suitable_for"] = json.loads(item["suitable_for"]) if item["suitable_for"] else []
+        items.append(item)
+    return items
+
+
 def get_scan_history(limit: int = 50) -> List[Dict[str, Any]]:
     """Mengambil seluruh riwayat pengujian untuk ditampilkan pada tabel riwayat komunitas."""
     conn = get_connection()
@@ -288,7 +318,9 @@ def get_scan_history(limit: int = 50) -> List[Dict[str, Any]]:
 
     query = """
         SELECT 
-            l.scan_id, l.timestamp, m.location_id, m.name, m.area, m.ssid, m.isp,
+            l.scan_id, l.timestamp, m.location_id, m.name, m.area, m.ssid,
+            COALESCE(NULLIF(NULLIF(l.isp, ''), '-'), m.isp, '-') AS isp,
+            COALESCE(NULLIF(l.server_info, ''), '-') AS server_info,
             m.latitude, m.longitude, l.download_mbps, l.upload_mbps, l.ping_ms, l.jitter_ms,
             l.is_throttled, l.video_mbps, l.score, l.category, l.findings, l.summary, l.suitable_for
         FROM wifi_scan_logs l
@@ -299,16 +331,30 @@ def get_scan_history(limit: int = 50) -> List[Dict[str, Any]]:
     cursor.execute(query, (limit,))
     rows = cursor.fetchall()
     conn.close()
+    return _decode_scan_rows(rows)
 
-    history = []
-    for row in rows:
-        item = dict(row)
-        item["is_throttled"] = bool(item["is_throttled"])
-        item["findings"] = json.loads(item["findings"]) if item["findings"] else []
-        item["suitable_for"] = json.loads(item["suitable_for"]) if item["suitable_for"] else []
-        history.append(item)
 
-    return history
+def get_location_scan_history(location_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Mengambil riwayat pengujian khusus untuk satu titik lokasi."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT 
+            l.scan_id, l.timestamp, m.location_id, m.name, m.area, m.ssid,
+            COALESCE(NULLIF(NULLIF(l.isp, ''), '-'), m.isp, '-') AS isp,
+            COALESCE(NULLIF(l.server_info, ''), '-') AS server_info,
+            l.download_mbps, l.upload_mbps, l.ping_ms, l.jitter_ms,
+            l.is_throttled, l.video_mbps, l.score, l.category, l.findings, l.summary, l.suitable_for
+        FROM wifi_scan_logs l
+        JOIN locations_master m ON l.location_id = m.location_id
+        WHERE l.location_id = ?
+        ORDER BY l.scan_id DESC
+        LIMIT ?
+    """
+    cursor.execute(query, (location_id, limit))
+    rows = cursor.fetchall()
+    conn.close()
+    return _decode_scan_rows(rows)
 
 
 def get_security_rules() -> List[Dict[str, Any]]:

@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #080f1c;
+      --panel: #122238;
+      --panel2: #172b45;
+      --line: #344a65;
+      --muted: #a9bbce;
+      --text: #f4f8ff;
+      --cyan: #35d5e8;
+      --blue: #638cff;
+      --green: #39d6a2;
+      --amber: #f5b84b;
+      --red: #f05a5a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: transparent;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      padding: 4px 2px 8px;
+    }
+    .card {
+      background: linear-gradient(145deg, #122238, #0d1828);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 28px 24px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .hero-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.6px;
+      color: var(--text);
+    }
+    .hero-desc {
+      color: var(--muted);
+      font-size: 14px;
+      max-width: 560px;
+      margin: 10px auto 24px;
+      line-height: 1.55;
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(100deg, var(--cyan), var(--blue));
+      color: #06111e;
+      border: 0;
+      border-radius: 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 15px 34px;
+      cursor: pointer;
+      box-shadow: 0 10px 28px rgba(53, 213, 232, 0.25);
+      transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.16s ease;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 14px 32px rgba(53, 213, 232, 0.34);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-secondary {
+      background: #172840;
+      color: var(--muted);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-secondary:hover {
+      border-color: var(--cyan);
+      color: var(--text);
+    }
+    .hint {
+      color: #8da2b9;
+      font-size: 12px;
+      margin-top: 16px;
+    }
+    .hidden { display: none !important; }
+
+    /* Testing view */
+    .phase-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(53, 213, 232, 0.12);
+      border: 1px solid rgba(53, 213, 232, 0.35);
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+      animation: pulse 1.2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.25); opacity: 1; }
+    }
+    .gauge-box {
+      position: relative;
+      width: 230px;
+      height: 230px;
+      margin: 0 auto 14px;
+    }
+    .gauge-svg { width: 100%; height: 100%; transform: rotate(135deg); }
+    .gauge-track {
+      fill: none;
+      stroke: #22344c;
+      stroke-width: 14;
+      stroke-linecap: round;
+    }
+    .gauge-fill {
+      fill: none;
+      stroke: url(#gaugeGrad);
+      stroke-width: 14;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.12s linear;
+    }
+    .gauge-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-top: 8px;
+    }
+    .gauge-mode {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      color: #9db3ca;
+      text-transform: uppercase;
+    }
+    .gauge-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 46px;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--text);
+      margin-top: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+    .gauge-unit {
+      color: var(--cyan);
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .progress-bar-wrap {
+      width: 100%;
+      max-width: 440px;
+      height: 6px;
+      background: #1d2e45;
+      border-radius: 999px;
+      margin: 6px auto 18px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--blue));
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+    .live-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+      text-align: left;
+    }
+    @media (max-width: 720px) {
+      .live-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .mini-card {
+      background: #0f1c2e;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .mini-label {
+      color: #8da4be;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.3px;
+      text-transform: uppercase;
+    }
+    .mini-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .error-box {
+      background: rgba(240, 90, 90, 0.14);
+      border: 1px solid rgba(240, 90, 90, 0.45);
+      color: #ffd5d5;
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin: 14px auto 0;
+      max-width: 520px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- IDLE STATE -->
+    <div id="view-idle">
+      <div class="eyebrow">CLIENT-SIDE CLOUDFLARE SPEED &amp; SECURITY PROBE</div>
+      <div class="hero-title">Uji Kualitas &amp; Keamanan Wi-Fi Anda</div>
+      <p class="hero-desc">
+        Pengukuran berjalan langsung dari browser perangkat Anda ke server Cloudflare terdekat
+        untuk mengetahui kecepatan Download, Upload, Ping, Jitter, indikasi throttling, dan keamanan koneksi.
+      </p>
+      <button id="btn-start" class="btn-primary" type="button">▶ &nbsp;Mulai Test Wi-Fi</button>
+      <div id="error-box" class="error-box hidden"></div>
+      <div class="hint">Menggunakan ±10–30 MB data untuk uji kecepatan. Lokasi &amp; nama Wi-Fi dapat dikonfirmasi setelah hasil keluar.</div>
+    </div>
+
+    <!-- TESTING STATE -->
+    <div id="view-testing" class="hidden">
+      <div class="phase-pill"><span class="pulse-dot"></span><span id="phase-text">Menyiapkan pengujian...</span></div>
+
+      <div class="gauge-box">
+        <svg class="gauge-svg" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#35d5e8" />
+              <stop offset="100%" stop-color="#638cff" />
+            </linearGradient>
+          </defs>
+          <!-- 270 deg arc on r=82 -> circumference=515.22, 75%=386.4 -->
+          <circle class="gauge-track" cx="100" cy="100" r="82" stroke-dasharray="386.4 515.22" />
+          <circle id="gauge-arc" class="gauge-fill" cx="100" cy="100" r="82" stroke-dasharray="386.4 515.22" stroke-dashoffset="386.4" />
+        </svg>
+        <div class="gauge-center">
+          <div id="gauge-mode" class="gauge-mode">MENGHUBUNGKAN</div>
+          <div id="gauge-number" class="gauge-number">--</div>
+          <div id="gauge-unit" class="gauge-unit">Mbps</div>
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap"><div id="progress-fill" class="progress-bar-fill"></div></div>
+      <button id="btn-cancel" class="btn-secondary" type="button">✕ Batalkan Tes</button>
+
+      <div class="live-grid">
+        <div class="mini-card">
+          <div class="mini-label">Ping (Median)</div>
+          <div id="live-ping" class="mini-val">-- ms</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">Jitter</div>
+          <div id="live-jitter" class="mini-val">-- ms</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">Server Uji</div>
+          <div id="live-server" class="mini-val">Mendeteksi...</div>
+        </div>
+        <div class="mini-card">
+          <div class="mini-label">ISP Jaringan</div>
+          <div id="live-isp" class="mini-val">Mendeteksi...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CF_DOWN = "https://speed.cloudflare.com/__down";
+    const CF_UP = "https://speed.cloudflare.com/__up";
+    const ARC_MAX = 386.4;
+
+    const viewIdle = document.getElementById("view-idle");
+    const viewTesting = document.getElementById("view-testing");
+    const errorBox = document.getElementById("error-box");
+    const phaseText = document.getElementById("phase-text");
+    const gaugeMode = document.getElementById("gauge-mode");
+    const gaugeNum = document.getElementById("gauge-number");
+    const gaugeUnit = document.getElementById("gauge-unit");
+    const gaugeArc = document.getElementById("gauge-arc");
+    const progressFill = document.getElementById("progress-fill");
+    const livePing = document.getElementById("live-ping");
+    const liveJitter = document.getElementById("live-jitter");
+    const liveServer = document.getElementById("live-server");
+    const liveIsp = document.getElementById("live-isp");
+
+    let activeController = null;
+    let activeXhr = null;
+    let cancelled = false;
+    let animFrame = null;
+    let displaySpeed = 0;
+    let targetSpeed = 0;
+
+    function sendMsg(type, data = {}) {
+      window.parent.postMessage({ isStreamlitMessage: true, type, ...data }, "*");
+    }
+
+    function syncHeight() {
+      sendMsg("streamlit:setFrameHeight", { height: document.documentElement.scrollHeight + 8 });
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "streamlit:render") {
+        syncHeight();
+      }
+    });
+
+    new ResizeObserver(syncHeight).observe(document.body);
+    sendMsg("streamlit:componentReady", { apiVersion: 1 });
+    syncHeight();
+
+    function setGauge(val, maxVal, unit, modeLabel) {
+      gaugeMode.textContent = modeLabel;
+      gaugeUnit.textContent = unit;
+      gaugeNum.textContent = val === null ? "--" : val.toFixed(unit === "ms" ? 0 : 1);
+      const ratio = val === null ? 0 : Math.max(0, Math.min(1, val / maxVal));
+      gaugeArc.style.strokeDashoffset = (ARC_MAX * (1 - ratio)).toFixed(1);
+    }
+
+    function startGaugeAnimation(modeLabel) {
+      displaySpeed = 0;
+      targetSpeed = 0;
+      const tick = () => {
+        displaySpeed += (targetSpeed - displaySpeed) * 0.22;
+        setGauge(displaySpeed, 100, "Mbps", modeLabel);
+        animFrame = requestAnimationFrame(tick);
+      };
+      animFrame = requestAnimationFrame(tick);
+    }
+
+    function stopGaugeAnimation() {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      animFrame = null;
+    }
+
+    function median(arr) {
+      if (!arr.length) return 0;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+
+    function meanJitter(arr) {
+      if (arr.length < 2) return 0;
+      let total = 0;
+      for (let i = 1; i < arr.length; i++) total += Math.abs(arr[i] - arr[i - 1]);
+      return total / (arr.length - 1);
+    }
+
+    async function fetchWithTimeout(url, opts = {}, ms = 5000) {
+      const ctrl = new AbortController();
+      const onAbort = () => ctrl.abort();
+      if (activeController) activeController.signal.addEventListener("abort", onAbort, { once: true });
+      const timer = setTimeout(() => ctrl.abort(), ms);
+      try {
+        return await fetch(url, { ...opts, signal: ctrl.signal, cache: "no-store" });
+      } finally {
+        clearTimeout(timer);
+        if (activeController) activeController.signal.removeEventListener("abort", onAbort);
+      }
+    }
+
+    async function detectMetadata() {
+      let isp = "-";
+      let serverInfo = "Cloudflare CDN";
+      let approxLat = null;
+      let approxLon = null;
+
+      try {
+        const cfResp = await fetchWithTimeout(`${CF_DOWN}?bytes=0&t=${Date.now()}`, {}, 4000);
+        const colo = cfResp.headers.get("cf-meta-colo") || cfResp.headers.get("colo") || "";
+        const cfCity = cfResp.headers.get("cf-meta-city") || cfResp.headers.get("city") || "";
+        const cfLat = parseFloat(cfResp.headers.get("cf-meta-latitude") || cfResp.headers.get("latitude"));
+        const cfLon = parseFloat(cfResp.headers.get("cf-meta-longitude") || cfResp.headers.get("longitude"));
+        if (colo || cfCity) serverInfo = `Cloudflare · ${cfCity || colo}${colo && cfCity ? ` (${colo})` : ""}`;
+        if (!Number.isNaN(cfLat) && !Number.isNaN(cfLon)) { approxLat = cfLat; approxLon = cfLon; }
+      } catch (_) {}
+
+      try {
+        const ipResp = await fetchWithTimeout("https://ipwho.is/", {}, 4000);
+        if (ipResp.ok) {
+          const info = await ipResp.json();
+          if (info && info.success !== false) {
+            isp = (info.connection && (info.connection.isp || info.connection.org)) || isp;
+            if (approxLat === null && typeof info.latitude === "number") approxLat = info.latitude;
+            if (approxLon === null && typeof info.longitude === "number") approxLon = info.longitude;
+            if (serverInfo === "Cloudflare CDN" && info.city) {
+              serverInfo = `Cloudflare · ${info.city}`;
+            }
+          }
+          // Jangan pernah menyimpan atau meneruskan info.ip ke Streamlit
+        }
+      } catch (_) {}
+
+      return { isp, serverInfo, approxLat, approxLon };
+    }
+
+    async function measurePingJitter() {
+      // 2 request pemanasan TCP/TLS agar handshake awal tidak mengganggu ping
+      await fetchWithTimeout(`${CF_DOWN}?bytes=0&w=1_${Date.now()}`, {}, 4000);
+      await fetchWithTimeout(`${CF_DOWN}?bytes=0&w=2_${Date.now()}`, {}, 4000);
+      const samples = [];
+      for (let i = 0; i < 10; i++) {
+        if (cancelled) throw new Error("cancelled");
+        const t0 = performance.now();
+        await fetchWithTimeout(`${CF_DOWN}?bytes=0&i=${i}&t=${Date.now()}`, {}, 4000);
+        const rtt = performance.now() - t0;
+        samples.push(rtt);
+        setGauge(rtt, 150, "ms", "PING");
+        progressFill.style.width = `${12 + i * 2}%`;
+      }
+      return { ping: median(samples), jitter: meanJitter(samples) };
+    }
+
+    async function measureDownload() {
+      const sizes = [200_000, 1_500_000, 6_000_000, 12_000_000];
+      const phaseStart = performance.now();
+      let measuredBytes = 0;
+      let measuredSec = 0;
+
+      for (let idx = 0; idx < sizes.length; idx++) {
+        if (cancelled) throw new Error("cancelled");
+        if (performance.now() - phaseStart > 6500 && idx >= 2) break;
+
+        const t0 = performance.now();
+        const resp = await fetchWithTimeout(`${CF_DOWN}?bytes=${sizes[idx]}&t=${Date.now()}`, {}, 8000);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+        let chunkBytes = 0;
+        if (resp.body && resp.body.getReader) {
+          const reader = resp.body.getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunkBytes += value.byteLength;
+            const elapsed = (performance.now() - t0) / 1000;
+            if (elapsed > 0.08) {
+              targetSpeed = (chunkBytes * 8) / (elapsed * 1_000_000);
+            }
+          }
+        } else {
+          const buf = await resp.arrayBuffer();
+          chunkBytes = buf.byteLength;
+        }
+        const elapsed = Math.max(0.01, (performance.now() - t0) / 1000);
+        const instMbps = (chunkBytes * 8) / (elapsed * 1_000_000);
+        targetSpeed = instMbps;
+
+        // Pakai ukuran menengah-besar agar akurat (atau tetap pakai idx 0 jika hanya itu yang sempat)
+        if (idx > 0 || sizes.length === 1) {
+          measuredBytes += chunkBytes;
+          measuredSec += elapsed;
+        }
+        progressFill.style.width = `${36 + (idx + 1) * 8}%`;
+      }
+
+      if (measuredSec <= 0) return targetSpeed;
+      return (measuredBytes * 8) / (measuredSec * 1_000_000);
+    }
+
+    function uploadOnce(byteCount) {
+      return new Promise((resolve, reject) => {
+        if (cancelled) return reject(new Error("cancelled"));
+        // Buat payload acak cepat dengan mengulang blok 64 KB
+        const payload = new Uint8Array(byteCount);
+        const seed = new Uint8Array(Math.min(65536, byteCount));
+        crypto.getRandomValues(seed);
+        for (let off = 0; off < byteCount; off += seed.length) {
+          payload.set(seed.subarray(0, Math.min(seed.length, byteCount - off)), off);
+        }
+
+        const xhr = new XMLHttpRequest();
+        activeXhr = xhr;
+        const t0 = performance.now();
+        xhr.open("POST", CF_UP, true);
+        xhr.timeout = 9000;
+
+        xhr.upload.onprogress = (ev) => {
+          if (!ev.lengthComputable) return;
+          const elapsed = (performance.now() - t0) / 1000;
+          if (elapsed > 0.1) {
+            targetSpeed = (ev.loaded * 8) / (elapsed * 1_000_000);
+          }
+        };
+        xhr.onload = () => {
+          activeXhr = null;
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const elapsed = Math.max(0.01, (performance.now() - t0) / 1000);
+            resolve({ bytes: byteCount, sec: elapsed });
+          } else {
+            reject(new Error(`Upload HTTP ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => { activeXhr = null; reject(new Error("Upload gagal")); };
+        xhr.ontimeout = () => { activeXhr = null; reject(new Error("Upload timeout")); };
+        xhr.onabort = () => { activeXhr = null; reject(new Error("cancelled")); };
+        xhr.send(payload);
+      });
+    }
+
+    async function measureUpload() {
+      const sizes = [250_000, 1_500_000, 4_000_000];
+      const phaseStart = performance.now();
+      let totalBytes = 0;
+      let totalSec = 0;
+
+      for (let idx = 0; idx < sizes.length; idx++) {
+        if (cancelled) throw new Error("cancelled");
+        if (performance.now() - phaseStart > 5500 && idx >= 1) break;
+        const res = await uploadOnce(sizes[idx]);
+        targetSpeed = (res.bytes * 8) / (res.sec * 1_000_000);
+        if (idx > 0 || sizes.length === 1) {
+          totalBytes += res.bytes;
+          totalSec += res.sec;
+        }
+        progressFill.style.width = `${70 + (idx + 1) * 6}%`;
+      }
+      return totalSec > 0 ? (totalBytes * 8) / (totalSec * 1_000_000) : targetSpeed;
+    }
+
+    async function probeLatency(url, mode = "no-cors") {
+      const t0 = performance.now();
+      try {
+        await fetchWithTimeout(url, { mode }, 3500);
+        return Math.round((performance.now() - t0) * 10) / 10;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function runNetNeutralityAndSecurity() {
+      const targets = [
+        ["Google (General Web)", "https://www.google.com/generate_204", "no-cors"],
+        ["Cloudflare (DNS/CDN)", `${CF_DOWN}?bytes=0&nn=${Date.now()}`, "cors"],
+        ["YouTube (Streaming)", "https://www.youtube.com/favicon.ico", "no-cors"],
+        ["Netflix (Streaming)", "https://www.netflix.com/favicon.ico", "no-cors"],
+      ];
+
+      const throttlingResults = {};
+      await Promise.all(targets.map(async ([name, url, mode]) => {
+        const lat = await probeLatency(url, mode);
+        throttlingResults[name] = {
+          status: lat === null ? "Gagal / Timeout" : (lat > 1500 ? "Lambat (Indikasi)" : "Normal"),
+          latency: lat === null ? "-" : lat,
+        };
+      }));
+
+      // Audit keamanan berbasis browser (DoH Cloudflare vs Google + HTTPS context)
+      const secObs = {
+        https_insecure: !window.isSecureContext,
+        dns_mismatch: false,
+        captive_portal: false,
+        check_failed: false,
+      };
+
+      try {
+        const [cfDns, gDns] = await Promise.all([
+          fetchWithTimeout("https://cloudflare-dns.com/dns-query?name=example.com&type=A", {
+            headers: { accept: "application/dns-json" },
+          }, 4000).then((r) => r.json()).catch(() => null),
+          fetchWithTimeout("https://dns.google/resolve?name=example.com&type=A", {}, 4000)
+            .then((r) => r.json()).catch(() => null),
+        ]);
+        const ipsA = new Set(((cfDns && cfDns.Answer) || []).filter((a) => a.type === 1).map((a) => a.data));
+        const ipsB = new Set(((gDns && gDns.Answer) || []).filter((a) => a.type === 1).map((a) => a.data));
+        if (!ipsA.size && !ipsB.size) {
+          secObs.check_failed = true;
+        } else if (ipsA.size && ipsB.size) {
+          const overlap = [...ipsA].some((ip) => ipsB.has(ip));
+          if (!overlap) secObs.dns_mismatch = true;
+        }
+      } catch (_) {
+        secObs.check_failed = true;
+      }
+
+      return { throttlingResults, secObs };
+    }
+
+    async function runFullBrowserTest() {
+      cancelled = false;
+      activeController = new AbortController();
+      errorBox.classList.add("hidden");
+      viewIdle.classList.add("hidden");
+      viewTesting.classList.remove("hidden");
+      livePing.textContent = "-- ms";
+      liveJitter.textContent = "-- ms";
+      liveServer.textContent = "Mendeteksi...";
+      liveIsp.textContent = "Mendeteksi...";
+      progressFill.style.width = "5%";
+      setGauge(null, 100, "ms", "MENGHUBUNGKAN");
+      syncHeight();
+
+      try {
+        phaseText.textContent = "1/4 · Mendeteksi server uji & ISP...";
+        const meta = await detectMetadata();
+        liveServer.textContent = meta.serverInfo;
+        liveIsp.textContent = meta.isp;
+        progressFill.style.width = "10%";
+
+        phaseText.textContent = "2/4 · Mengukur Ping & Jitter...";
+        const { ping, jitter } = await measurePingJitter();
+        livePing.textContent = `${ping.toFixed(0)} ms`;
+        liveJitter.textContent = `${jitter.toFixed(1)} ms`;
+
+        phaseText.textContent = "3/4 · Mengukur kecepatan Download...";
+        startGaugeAnimation("DOWNLOAD");
+        const downloadMbps = await measureDownload();
+        stopGaugeAnimation();
+        setGauge(downloadMbps, 100, "Mbps", "DOWNLOAD");
+
+        phaseText.textContent = "4/4 · Mengukur kecepatan Upload & audit koneksi...";
+        startGaugeAnimation("UPLOAD");
+        const uploadMbps = await measureUpload();
+        stopGaugeAnimation();
+        setGauge(uploadMbps, 100, "Mbps", "UPLOAD");
+
+        progressFill.style.width = "92%";
+        phaseText.textContent = "Menyelesaikan audit net neutrality & keamanan...";
+        const { throttlingResults, secObs } = await runNetNeutralityAndSecurity();
+        progressFill.style.width = "100%";
+
+        const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        sendMsg("streamlit:setComponentValue", {
+          dataType: "json",
+          value: {
+            run_id: runId,
+            download_mbps: Math.round(downloadMbps * 100) / 100,
+            upload_mbps: Math.round(uploadMbps * 100) / 100,
+            ping_ms: Math.round(ping * 10) / 10,
+            jitter_ms: Math.round(jitter * 10) / 10,
+            isp: meta.isp,
+            server_info: meta.serverInfo,
+            approx_lat: meta.approxLat,
+            approx_lon: meta.approxLon,
+            throttling_results: throttlingResults,
+            security_obs: secObs,
+          },
+        });
+      } catch (err) {
+        stopGaugeAnimation();
+        viewTesting.classList.add("hidden");
+        viewIdle.classList.remove("hidden");
+        if (!cancelled && err.message !== "cancelled") {
+          errorBox.textContent = `Pengujian gagal (${err.message}). Pastikan internet aktif dan tidak ada pemblokir ke speed.cloudflare.com, atau gunakan mode Simulasi.`;
+          errorBox.classList.remove("hidden");
+        }
+        syncHeight();
+      }
+    }
+
+    document.getElementById("btn-start").addEventListener("click", runFullBrowserTest);
+    document.getElementById("btn-cancel").addEventListener("click", () => {
+      cancelled = true;
+      if (activeController) activeController.abort();
+      if (activeXhr) activeXhr.abort();
+    });
+  </script>
+</body>
+</html>

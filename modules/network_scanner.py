@@ -77,6 +77,52 @@ def calculate_quality_score(download, upload, ping, jitter, is_throttled):
     return int(round(max(0.0, min(100.0, score))))
 
 
+def evaluate_throttling_map(throttling_results):
+    """Bandingkan latensi layanan streaming dengan layanan umum dari dict hasil."""
+    def numeric(names):
+        return [
+            throttling_results[n]["latency"]
+            for n in names
+            if isinstance(throttling_results.get(n, {}).get("latency"), (int, float))
+        ]
+
+    general = numeric(GENERAL_SERVICES)
+    streaming = numeric(STREAMING_SERVICES)
+    streaming_failed = any(
+        not isinstance(throttling_results.get(n, {}).get("latency"), (int, float))
+        for n in STREAMING_SERVICES
+        if n in throttling_results
+    )
+
+    if not general:
+        return False
+    if streaming_failed:
+        return True
+    if not streaming:
+        return False
+    g, s = statistics.median(general), statistics.median(streaming)
+    return s > g * THROTTLE_RATIO and (s - g) > THROTTLE_MIN_GAP_MS
+
+
+def estimate_video_throughput(download_speed, is_throttled, throttling_results):
+    """Estimasi throughput streaming dari perbandingan latensi umum vs streaming."""
+    if not is_throttled:
+        return float(download_speed)
+
+    general = [
+        v["latency"] for k, v in throttling_results.items()
+        if k in GENERAL_SERVICES and isinstance(v.get("latency"), (int, float))
+    ]
+    streaming = [
+        v["latency"] for k, v in throttling_results.items()
+        if k in STREAMING_SERVICES and isinstance(v.get("latency"), (int, float))
+    ]
+    if general and streaming:
+        ratio = statistics.median(general) / statistics.median(streaming)
+        return float(download_speed) * max(0.05, min(1.0, ratio))
+    return float(download_speed) * 0.1
+
+
 class NetworkDiagnostics:
     def __init__(self):
         # Atribut untuk menyimpan state / hasil pengecekan
@@ -183,43 +229,13 @@ class NetworkDiagnostics:
 
     def _evaluate_throttling(self):
         """Bandingkan latensi layanan streaming dengan layanan umum."""
-        def numeric(names):
-            return [self.throttling_results[n]["latency"] for n in names
-                    if isinstance(self.throttling_results.get(n, {}).get("latency"), float)]
-
-        general = numeric(GENERAL_SERVICES)
-        streaming = numeric(STREAMING_SERVICES)
-        streaming_failed = any(
-            not isinstance(self.throttling_results.get(n, {}).get("latency"), float)
-            for n in STREAMING_SERVICES
-        )
-
-        if not general:
-            return False  # internet umum juga gagal -> bukan throttling spesifik
-        if streaming_failed:
-            return True   # web umum bisa, streaming tidak bisa -> indikasi pembatasan
-        g, s = statistics.median(general), statistics.median(streaming)
-        return s > g * THROTTLE_RATIO and (s - g) > THROTTLE_MIN_GAP_MS
+        return evaluate_throttling_map(self.throttling_results)
 
     def estimate_video_speed(self):
-        """Estimasi throughput streaming (bukan pengukuran langsung).
-
-        Jika tidak ada indikasi throttling, diasumsikan sama dengan download.
-        Jika ada, diskalakan dengan rasio latensi layanan umum vs streaming.
-        """
-        if not self.is_throttled:
-            self.video_speed = self.download_speed
-            return self.video_speed
-
-        general = [v["latency"] for k, v in self.throttling_results.items()
-                   if k in GENERAL_SERVICES and isinstance(v["latency"], float)]
-        streaming = [v["latency"] for k, v in self.throttling_results.items()
-                     if k in STREAMING_SERVICES and isinstance(v["latency"], float)]
-        if general and streaming:
-            ratio = statistics.median(general) / statistics.median(streaming)
-            self.video_speed = self.download_speed * max(0.05, min(1.0, ratio))
-        else:
-            self.video_speed = self.download_speed * 0.1
+        """Estimasi throughput streaming (bukan pengukuran langsung)."""
+        self.video_speed = estimate_video_throughput(
+            self.download_speed, self.is_throttled, self.throttling_results
+        )
         return self.video_speed
 
     def to_dict(self, simulated=False):
@@ -238,6 +254,8 @@ class NetworkDiagnostics:
             "signal": self.signal,
             "authentication": self.authentication,
             "cipher": self.cipher,
+            "server_info": "speedtest-cli",
+            "isp": "-",
             "throttling_results": self.throttling_results,
             "simulated": simulated,
         }
@@ -289,6 +307,7 @@ def run_network_scan(simulate=None):
                 data["jitter_ms"], data["is_throttled"]),
             "ssid": "Simulasi", "signal": "N/A",
             "authentication": "Unknown", "cipher": "Unknown",
+            "server_info": "Simulasi", "isp": "Simulasi ISP",
             "throttling_results": {}, "simulated": True,
         })
         return data
@@ -304,6 +323,43 @@ def run_network_scan(simulate=None):
     diag.check_throttling()
     diag.estimate_video_speed()
     return diag.to_dict(simulated=False)
+
+
+def build_network_data_from_browser(payload):
+    """Konversi payload dari komponen speedtest browser (Cloudflare) ke kontrak network_data."""
+    dl = float(payload.get("download_mbps", 0.0))
+    ul = float(payload.get("upload_mbps", 0.0))
+    ping = float(payload.get("ping_ms", 0.0))
+    jitter = float(payload.get("jitter_ms", 0.0))
+    throttling_results = payload.get("throttling_results") or {}
+
+    is_throttled = evaluate_throttling_map(throttling_results)
+    video_mbps = estimate_video_throughput(dl, is_throttled, throttling_results)
+
+    # Jika app dijalankan lokal di Windows, bantu isi SSID/enkripsi dari OS
+    diag = NetworkDiagnostics()
+    diag.check_wifi_status()
+
+    return {
+        "download_mbps": round(dl, 2),
+        "upload_mbps": round(ul, 2),
+        "ping_ms": round(ping, 1),
+        "jitter_ms": round(jitter, 1),
+        "is_throttled": bool(is_throttled),
+        "video_mbps": round(video_mbps, 2),
+        "quality_score": calculate_quality_score(dl, ul, ping, jitter, is_throttled),
+        "ssid": diag.ssid,
+        "signal": diag.signal,
+        "authentication": diag.authentication,
+        "cipher": diag.cipher,
+        "server_info": str(payload.get("server_info") or "Cloudflare CDN"),
+        "isp": str(payload.get("isp") or "-"),
+        "approx_lat": payload.get("approx_lat"),
+        "approx_lon": payload.get("approx_lon"),
+        "throttling_results": throttling_results,
+        "simulated": False,
+        "source": "browser",
+    }
 
 
 # --- Bagian Eksekusi Program ---

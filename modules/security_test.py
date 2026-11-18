@@ -34,6 +34,7 @@ PENALTIES = {
     "dns_mismatch":       (25, "Jawaban DNS berbeda dari resolver terpercaya (indikasi DNS hijack)."),
     "captive_portal":     (5,  "Terdeteksi captive portal (halaman login Wi-Fi)."),
     "portal_insecure":    (15, "Captive portal memakai HTTP biasa, kredensial bisa disadap."),
+    "https_insecure":     (20, "Halaman diakses tanpa HTTPS aman (rentan penyadapan jaringan lokal)."),
     "no_hsts":            (10, "Header HSTS tidak ada."),
     "no_csp":             (5,  "Header Content-Security-Policy tidak ada."),
     "no_xfo":             (5,  "Header X-Frame-Options tidak ada."),
@@ -269,6 +270,19 @@ def audit_wifi(simulate=None, wifi_info=None):
     observations.update(header_obs)
     observations["check_failed"] = failed
     return calculate_security_score(observations)
+
+
+def audit_wifi_from_browser(security_obs, wifi_info=None):
+    """Hitung skor keamanan dari observasi browser + enkripsi OS lokal (jika tersedia)."""
+    obs = dict(security_obs or {})
+    if wifi_info:
+        obs.update(check_wifi_encryption(wifi_info))
+    result = calculate_security_score(obs)
+    if result["findings"] == ["Tidak ada temuan keamanan."]:
+        result["findings"] = [
+            "Pemeriksaan browser aman (DNS-over-HTTPS konsisten & konteks HTTPS aktif)."
+        ]
+    return result
 
 
 if __name__ == "__main__":
